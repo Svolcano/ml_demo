@@ -8,6 +8,10 @@ import time
 from keras import models, losses, metrics, activations, optimizers
 from keras import layers
 import tensorflow as tf
+from collections import Counter
+import random
+import matplotlib.pyplot as plt
+from datetime import datetime
 
 
 step = 2
@@ -50,7 +54,8 @@ def read_data_from_file(file_path):
                 t = stock_info[0]
                 data.append((t, price, deal_amount))
             data_len = len(data) - scope
-            target_data = []
+            t_target_data = []
+            f_target_data = []
             for idx, row in enumerate(data):
                 if idx < scope:
                     continue
@@ -66,16 +71,31 @@ def read_data_from_file(file_path):
                     deal_amount_ratio = (next_deal_amount - deal_amount) / deal_amount
                     # print(price_ratio, deal_amount_ratio)
                     if price_ratio > target and deal_amount_ratio > target:
-                        target_data.append(
+                        t_target_data.append(
                             data[idx + 1 - scope : idx + 1 + scope + 1] + [1, new_name]
                         )
                     else:
-                        target_data.append(
+                        f_target_data.append(
                             data[idx + 1 - scope : idx + 1 + scope + 1] + [0, new_name]
                         )
         # df = pd.DataFrame(target_data)
         # df.to_pickle(os.path.join(internal_data_root_path, new_name+'.pkl'))
-        if len(target_data) > 10:
+        tl = len(t_target_data)
+        fl = len(f_target_data)
+        if tl or fl:
+            if tl and fl:
+                t = tl * 3
+                if t > fl:
+                    t = fl
+                target_data = t_target_data + random.sample(f_target_data, t)
+            else:
+                if tl:
+                    target_data = t_target_data
+                else:
+                    t = 100
+                    if t > fl :
+                        t = fl
+                    target_data = random.sample(f_target_data, t)
             return wash_data(target_data)
     except Exception as e:
         print(e)
@@ -100,18 +120,7 @@ def load_data(root_path="D:\小任务数据\export"):
                 total_data.append(data)
                 total_label.append(label)
                 
-    data = np.vstack(total_data)
-    label = np.hstack(total_label)
-    # print(np.unique(label))
-
-
-
-    # model = build_model(train.shape[1])
-    # history = model.fit(train, train_label, epochs=80, batch_size=20000, validation_data=(test, test_label))
-
-    # result = model.evaluate(val, val_label)
-    # print(result)
-    # print(model.predict(val))
+    train(total_data, total_label)
 
 def wash_data(total_datas):
     df = pd.DataFrame(total_datas)
@@ -122,7 +131,8 @@ def wash_data(total_datas):
     
     data = data.to_numpy()
     label = label.to_numpy()
-
+    data = data.astype('float32')
+    label = label.astype('float32')
     mm = data.max()
     mmin = data.min()
     data -= mmin
@@ -147,9 +157,65 @@ def build_model(shape):
     # model.add(layers.Dense(64, activation=activations.relu))
     model.add(layers.Dense(1, activation=activations.sigmoid))
     model.compile(
-        optimizer="rmsprop", loss=losses.binary_crossentropy, metrics=[metrics.accuracy]
+        optimizer="adam", loss=losses.binary_crossentropy, metrics=['acc']
     )
+    # metric accuracy : dict_keys(['loss', 'accuracy', 'val_loss', 'val_accuracy'])
+    # metric acc : dict_keys(['loss', 'acc', 'val_loss', 'val_acc'])
     return model
+
+def paint(history):
+    plt.subplot(1, 2, 1)
+    history_dict = history.history
+    print(history_dict.keys())
+    loss_values = history_dict['loss']
+    val_loss = history_dict['val_loss']
+    epochs = range(1, len(loss_values) + 1)
+    plt.plot(epochs, loss_values, 'bo', label='Training loss')
+    plt.plot(epochs, val_loss, 'b', label='Testing loss')
+    plt.title('Training vs Test loss')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.legend()
+
+
+    plt.subplot(1, 2, 2 )
+    acc = history_dict['acc']
+    val_acc = history_dict['val_acc']
+    epochs = range(1, len(acc) + 1)
+    plt.plot(epochs, acc, 'bo', label='Training acc')
+    plt.plot(epochs, val_acc, 'b', label='Testing acc')
+    plt.title('Training vs Test accuracy')
+    plt.xlabel('Epochs')
+    plt.ylabel('Acc')
+    plt.legend()
+    plt.show()
+
+def train(total_data, total_label):
+    model_name = "ml_model_{}_v{}.h5".format(datetime.now().strftime("%Y_%m_%d"), 1)
+    data = np.vstack(total_data)
+    label = np.hstack(total_label)
+    label = label.astype('float32')
+    data_len = data.shape[0]
+    train_size = int(data_len * 0.8)
+    test_size = data_len - train_size
+    val_size = int(train_size * 0.2)
+    train_size = train_size - val_size
+    split_size = [train_size, test_size, val_size]
+    print(split_size)
+    train_data, test_data, val_data = tf.split(data, split_size, axis=0)
+    print(train_data.shape, test_data.shape, val_data.shape)
+    train_label, test_label, val_label = tf.split(label, split_size, axis=0)
+    print(Counter(train_label.numpy()), Counter(test_label.numpy()), Counter(val_label.numpy()))
+    model = build_model(train_data.shape[1])
+    history = model.fit(train_data, train_label, epochs=40, batch_size=64, validation_data=(test_data, test_label))
+    paint(history)
+    model.save(model_name)
+
+    del model
+    loaded_model = models.load_model(model_name)
+    print(loaded_model.summary())
+    loss,acc = loaded_model.evaluate(val_data, val_label, verbose=2)
+    print(loss, acc)
 
 
 if __name__ == "__main__":
