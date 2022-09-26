@@ -14,9 +14,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import pickle
 
-
 step = 2
-scope = 5
+scope = 10
 target = 0.12
 
 data_root_path = "D:/小任务数据/export"
@@ -73,11 +72,11 @@ def read_data_from_file(file_path):
                     # print(price_ratio, deal_amount_ratio)
                     if price_ratio > target and deal_amount_ratio > target:
                         t_target_data.append(
-                            data[idx + 1 - scope : idx + 1 + scope + 1] + [1, new_name]
+                            data[idx + 1 - scope : idx + step] + [1, new_name]
                         )
                     else:
                         f_target_data.append(
-                            data[idx + 1 - scope : idx + 1 + scope + 1] + [0, new_name]
+                            data[idx + 1 - scope : idx + step] + [0, new_name]
                         )
         # df = pd.DataFrame(target_data)
         # df.to_pickle(os.path.join(internal_data_root_path, new_name+'.pkl'))
@@ -156,9 +155,8 @@ def test():
 
 def build_model(shape):
     model = models.Sequential()
-    model.add(layers.Dense(64, activation=activations.relu, input_shape=(shape,)))
-    model.add(layers.Dense(64, activation=activations.relu))
-    # model.add(layers.Dense(64, activation=activations.relu))
+    model.add(layers.Dense(36, activation=activations.relu, input_shape=(shape,)))
+    model.add(layers.Dense(36, activation=activations.relu))
     model.add(layers.Dense(1, activation=activations.sigmoid))
     model.compile(optimizer="adam", loss=losses.binary_crossentropy, metrics=["acc"])
     # metric accuracy : dict_keys(['loss', 'accuracy', 'val_loss', 'val_accuracy'])
@@ -240,8 +238,8 @@ def train():
     history = model.fit(
         train_data,
         train_label,
-        epochs=11,
-        batch_size=64,
+        epochs=33,
+        batch_size=512,
         validation_data=(test_data, test_label),
     )
     paint(history)
