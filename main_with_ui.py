@@ -1,3 +1,8 @@
+import matplotlib
+matplotlib.use('WXAgg')
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
+from matplotlib.backends.backend_wxagg import NavigationToolbar2WxAgg as NavigationToolbar2Wx
 import wx
 import os
 from wx.adv import DatePickerCtrl
@@ -6,13 +11,22 @@ import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
+
 def cos_similarity(v1, v2):
     if len(v1) != len(v2):
         return 0
     v1 = np.array(v1)
     v2 = np.array(v2)
-    cos_sim = v1.dot(v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
-    return cos_sim
+    norm_v1 = np.linalg.norm(v1)
+    norm_v2 = np.linalg.norm(v2)
+    cos_sim = v1.dot(v2) / (norm_v1 * norm_v2)
+    threshhold = 0.9
+    if cos_sim < threshhold:
+        return 0
+    dis = np.linalg.norm(v1-v2)
+    if dis > norm_v1 * (1-threshhold):
+        return 0
+    return 1
 
 
 def list_all_files(root_path):
@@ -56,7 +70,7 @@ def has_simlarity(file_path, v1, start_date, end_date):
         return None
     v2 = [a[1] for a in v2_info]
     sim = cos_similarity(v1, v2)
-    if sim < 0.95:
+    if sim:
         return None
     else:
         return code, name, v2_info
@@ -96,9 +110,60 @@ def read_data_from_file(file_path):
     return []
 
 
+class Mywin(wx.Frame):
+    def __init__(self, parent, title, data, default_size=(800, 600)):
+        wx.Frame.__init__(self, parent, title=title)
+        self.SetMinSize(default_size)
+        self.data = data
+        self.title = title
+        self.InitUI()
+
+    def InitUI(self):
+        self.Bind(wx.EVT_PAINT, self.OnPaint)
+        self.CreateCtrls()
+        self.DoLayout()
+        self.Show(True)
+
+    def CreateCtrls(self):
+        """
+        ...
+        """
+
+        self.figure = Figure()
+        self.axes = self.figure.add_subplot(111)
+
+        #------------
+
+        self.canvas = FigureCanvas(self, -1, self.figure)
+
+        #------------
+
+        self.toolbar = NavigationToolbar2Wx(self.canvas)
+        self.toolbar.Realize()
+
+    def DoLayout(self):
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(self.canvas, 1, wx.LEFT | wx.TOP | wx.GROW)
+        sizer.Add(self.toolbar, 0, wx.LEFT | wx.EXPAND)
+        self.SetSizer(sizer)
+        self.Fit()
+        self.Centre()
+
+    def Draw(self):
+        x = [a[0] for a in self.data ]
+        y = [a[1] for a in self.data ]
+        self.axes.plot(x, y, "g", marker='D', markersize=5)
+        # self.axes.set_xticklabels(rotation=45)
+        self.axes.set_xlabel(u"date")
+        self.axes.set_ylabel(u"price")
+        self.figure.autofmt_xdate(rotation=270)
+
+    def OnPaint(self, e):
+        self.Draw()
+
 class MainFrame(wx.Frame):
     def __init__(self, parent, title, default_size=(800, 600)):
-        wx.Frame.__init__(self, parent=parent, title=title)
+        wx.Frame.__init__(self, parent, title=title)
         self.SetMinSize(default_size)
 
         self.data_path = None
@@ -116,7 +181,7 @@ class MainFrame(wx.Frame):
         self.file_name_tpl = "SH#{}.txt"
         self.panel = wx.Panel(self)
         self.list_ctl = None
-        self.found_similarity = [] # list
+        self.found_similarity = []  # list
 
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -165,24 +230,26 @@ class MainFrame(wx.Frame):
             5,
         )
         self.main_sizer.Add(log_sizer, 0, wx.ALL | wx.EXPAND, 5)
-        
-
         self.panel.SetSizer(self.main_sizer)
         self.main_sizer.Fit(self)
 
     def place_similary_info(self):
         sizer = wx.BoxSizer(wx.VERTICAL)
-        self.list_ctl = wx.ListCtrl(self.panel, style=wx.LC_SINGLE_SEL|wx.LC_REPORT)
-        self.list_ctl.InsertColumn (0, '序号', width=200)
-        self.list_ctl.InsertColumn (1, '股票', width=400)
+        self.list_ctl = wx.ListCtrl(self.panel, style=wx.LC_SINGLE_SEL | wx.LC_REPORT)
+        self.list_ctl.InsertColumn(0, "序号", width=200)
+        self.list_ctl.InsertColumn(1, "股票", width=400)
         self.list_ctl.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_item_select)
-        sizer.Add(self.list_ctl, 0, wx.ALL|wx.EXPAND, 5)
+        sizer.Add(self.list_ctl, 0, wx.ALL | wx.EXPAND, 5)
         return sizer
-
 
     def on_item_select(self, e):
         list_item = e.Item
-        print(list_item.GetId())
+        data_idx = list_item.GetId()
+        data = self.found_similarity[data_idx]
+        code, name, year_price = data
+        Mywin(None, "{}, {}".format(code, name), year_price)
+
+        
 
     def wxdate2pydate(self, date):
         assert isinstance(date, wx.DateTime)
@@ -205,7 +272,7 @@ class MainFrame(wx.Frame):
         )
 
         btn = wx.Button(self.panel, label="找到相似区间")
-        btn.Bind(wx.EVT_BUTTON, self.on_find_similary) 
+        btn.Bind(wx.EVT_BUTTON, self.on_find_similary)
         info_sizer.Add(label1, 0, wx.ALL, border=5)
         info_sizer.Add(self.stock_code_ctl, 0, wx.ALL, border=5)
         info_sizer.Add(label2, 0, wx.ALL, border=5)
@@ -299,9 +366,9 @@ class MainFrame(wx.Frame):
         for idx, item in enumerate(self.found_similarity):
             code, name, found_data = item
             d = "".join(["{} , {}\t".format(*d) for d in found_data])
-            s = "{}\t{} {} {}".format(idx+1, code, name, d)
+            s = "{}\t{} {} {}".format(idx + 1, code, name, d)
             result.append(s)
-            self.list_ctl.Append([idx+1, "{}, {}".format(code, name)])
+            self.list_ctl.Append([idx + 1, "{}, {}".format(code, name)])
         return "\n".join(result)
 
     def place_log_sizer(self):
@@ -314,8 +381,8 @@ class MainFrame(wx.Frame):
         btn.Bind(wx.EVT_BUTTON, self.on_log_clear)
         op_sizer.Add(label, 0, wx.ALL, 5)
         op_sizer.Add(btn, 0, wx.ALL, 5)
-        log_sizer.Add(op_sizer, 0, wx.ALL|wx.EXPAND, 5)
-        log_sizer.Add(self.log_ctl, 0, wx.ALL|wx.EXPAND, 5)
+        log_sizer.Add(op_sizer, 0, wx.ALL | wx.EXPAND, 5)
+        log_sizer.Add(self.log_ctl, 0, wx.ALL | wx.EXPAND, 5)
         return log_sizer
 
     def on_log_clear(self, e):
