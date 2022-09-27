@@ -73,7 +73,6 @@ def search(file_paths, v1, start_date, end_date):
             ret = t.result()
             if ret:
                 result.append(ret)
-
     return result
 
 
@@ -115,9 +114,9 @@ class MainFrame(wx.Frame):
         self.op_counter = 1
         self.error_prefix = "!!!!!!!!!"
         self.file_name_tpl = "SH#{}.txt"
-
-        # self.Bind(wx.EVT_SIZE, self.max_log)
         self.panel = wx.Panel(self)
+        self.list_ctl = None
+        self.found_similarity = [] # list
 
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
 
@@ -125,6 +124,7 @@ class MainFrame(wx.Frame):
         config_sizer = self.place_config_sizer()
         log_sizer = self.place_log_sizer()
         info_sizer = self.place_stock_choser_info()
+        list_sizer = self.place_similary_info()
 
         self.main_sizer.Add(title_sizer, 0, wx.CENTER)
         self.main_sizer.Add(
@@ -155,10 +155,34 @@ class MainFrame(wx.Frame):
             wx.ALL | wx.EXPAND,
             5,
         )
+        self.main_sizer.Add(list_sizer, 0, wx.ALL | wx.EXPAND, 5)
+        self.main_sizer.Add(
+            wx.StaticLine(
+                self.panel,
+            ),
+            0,
+            wx.ALL | wx.EXPAND,
+            5,
+        )
         self.main_sizer.Add(log_sizer, 0, wx.ALL | wx.EXPAND, 5)
+        
 
         self.panel.SetSizer(self.main_sizer)
         self.main_sizer.Fit(self)
+
+    def place_similary_info(self):
+        sizer = wx.BoxSizer(wx.VERTICAL)
+        self.list_ctl = wx.ListCtrl(self.panel, style=wx.LC_SINGLE_SEL|wx.LC_REPORT)
+        self.list_ctl.InsertColumn (0, '序号', width=200)
+        self.list_ctl.InsertColumn (1, '股票', width=400)
+        self.list_ctl.Bind(wx.EVT_LIST_ITEM_SELECTED, self.on_item_select)
+        sizer.Add(self.list_ctl, 0, wx.ALL|wx.EXPAND, 5)
+        return sizer
+
+
+    def on_item_select(self, e):
+        list_item = e.Item
+        print(list_item.GetId())
 
     def wxdate2pydate(self, date):
         assert isinstance(date, wx.DateTime)
@@ -181,8 +205,7 @@ class MainFrame(wx.Frame):
         )
 
         btn = wx.Button(self.panel, label="找到相似区间")
-        btn.Bind(wx.EVT_BUTTON, self.on_find_similary)
-
+        btn.Bind(wx.EVT_BUTTON, self.on_find_similary) 
         info_sizer.Add(label1, 0, wx.ALL, border=5)
         info_sizer.Add(self.stock_code_ctl, 0, wx.ALL, border=5)
         info_sizer.Add(label2, 0, wx.ALL, border=5)
@@ -268,17 +291,17 @@ class MainFrame(wx.Frame):
         else:
             self.log("")
             ret = search(self.all_file_pathes, v1, self.start_date, self.end_date)
-            self.log(self.format(ret))
+            self.found_similarity = ret
+            self.log(self.format())
 
-    def format(self, out):
+    def format(self):
         result = []
-        c = 1
-        for item in out:
+        for idx, item in enumerate(self.found_similarity):
             code, name, found_data = item
             d = "".join(["{} , {}\t".format(*d) for d in found_data])
-            s = "{}\t{} {} {}".format(c, code, name, d)
+            s = "{}\t{} {} {}".format(idx+1, code, name, d)
             result.append(s)
-            c += 1
+            self.list_ctl.Append([idx+1, "{}, {}".format(code, name)])
         return "\n".join(result)
 
     def place_log_sizer(self):
@@ -291,16 +314,9 @@ class MainFrame(wx.Frame):
         btn.Bind(wx.EVT_BUTTON, self.on_log_clear)
         op_sizer.Add(label, 0, wx.ALL, 5)
         op_sizer.Add(btn, 0, wx.ALL, 5)
-        log_sizer.Add(op_sizer)
-        log_sizer.Add(self.log_ctl, 0, wx.ALL, 5)
+        log_sizer.Add(op_sizer, 0, wx.ALL|wx.EXPAND, 5)
+        log_sizer.Add(self.log_ctl, 0, wx.ALL|wx.EXPAND, 5)
         return log_sizer
-
-    def max_log(self, e):
-        return 
-        # w, h = self.GetSize()
-        # self.log_ctl.SetSize((w - 10, h))
-        # self.Refresh()
-
 
     def on_log_clear(self, e):
         if self.log_ctl:
