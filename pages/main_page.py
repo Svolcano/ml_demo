@@ -1,4 +1,5 @@
 import matplotlib
+matplotlib.use('WXAgg')
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
@@ -8,7 +9,7 @@ from wx.adv import DatePickerCtrl
 from datetime import datetime
 import numpy as np
 import cv2 as cv
-from tools.const import g_win_default_size, g_border_size
+from tools.const import  g_border_size
 from tools.utils import  filter_data_by_date
 
 def vec_to_image_data(v1):
