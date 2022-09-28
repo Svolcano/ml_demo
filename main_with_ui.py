@@ -1,6 +1,6 @@
 import wx
-from main_page import MainPage
-from page2 import Page2
+from pages.main_page import MainPage
+from pages.page2 import Page2
 from tools.utils import load_data
 
 def get_path():
