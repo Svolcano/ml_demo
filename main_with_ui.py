@@ -1,7 +1,10 @@
+import matplotlib
+matplotlib.use('WXAgg')
 import wx
 from pages.main_page import MainPage
 from pages.page2 import Page2
 from tools.utils import load_data
+import copy
 
 def get_path():
     with wx.DirDialog(
@@ -22,32 +25,29 @@ class MainFrame(wx.Frame):
 
         self.SetMinSize(default_size)
         sizer = wx.BoxSizer(wx.HORIZONTAL)
-        # self.Bind(wx.EVT_SIZE, self.on_size)
+        self.Bind(wx.EVT_SIZE, self.on_size)
         self.screen_w, self.screen_h = wx.DisplaySize()
         
         self.scroll = wx.ScrolledWindow(self, size=default_size)
         self.nb = wx.Notebook(self.scroll, size=default_size)
         self.nb.AddPage(MainPage(self.nb, data_path=data_path,stock_data=self.data_all), "图形相似对比筛选")
-        self.nb.AddPage(Page2(self.nb,data_path=data_path,stock_data=self.data_all), "数据涨幅筛选")
+        self.nb.AddPage(Page2(self.nb,data_path=data_path,stock_data=copy.deepcopy(self.data_all)), "数据涨幅筛选")
         self.scroll.SetVirtualSize((self.screen_w, self.screen_h))
-        self.scroll.SetScrollRate(20,20)
+        self.scroll.SetScrollRate(1,1)
         sizer.Add(self.scroll, 1, wx.ALL|wx.EXPAND)
         self.SetSizer(sizer)
         sizer.Layout()
         sizer.Fit(self)
 
     
-    # def on_size(self, e):
-        
-    #     client_size = self.GetClientSize()
-    #     print(client_size, self.screen_w, self.screen_h)
-    #     self.scroll.SetSize(0, 0, client_size.Width, client_size.Height)
-    #     self.nb.SetSize(0, 0, self.screen_w, self.screen_h)
+    def on_size(self, e):
+        client_size = self.GetClientSize()
+        self.scroll.SetSize(0, 0, client_size.Width, client_size.Height)
+        self.nb.SetSize(0, 0, self.screen_w, self.screen_h)
 
         
 
 app = wx.App(False)
-default_size=(800, 600)
 data_path = get_path()
 frame = MainFrame(None, title="Notebook Demo", data_path=data_path)
 frame.Show()

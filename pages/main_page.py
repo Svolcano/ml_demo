@@ -1,5 +1,4 @@
 import matplotlib
-matplotlib.use('WXAgg')
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
@@ -99,7 +98,6 @@ class Mywin(wx.Frame):
 class MainPage(wx.Panel):
     def __init__(self, parent, data_path='.', stock_data={}):
         super(MainPage, self).__init__(parent)
-        self.data_path = None
         self.log_ctl = None
         self.stock_code = None
         self.stock_code_ctl = None
@@ -107,13 +105,10 @@ class MainPage(wx.Panel):
         self.start_date_ctl = None
         self.end_date = None
         self.end_date_ctl = None
-        self.all_file_names = None
-        self.all_file_pathes = None
         self.op_counter = 1
         self.error_prefix = "!!!!!!!!!"
-        self.file_name_tpl = "SH#{}.txt"
+        # self.file_name_tpl = "SH#{}.txt"
         self.list_ctl = None
-        self.found_similarity = []  # list
         self.data_path = data_path
         self.stock_data = stock_data
 
