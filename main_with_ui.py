@@ -1,5 +1,3 @@
-import matplotlib
-matplotlib.use('WXAgg')
 import wx
 from pages.main_page import MainPage
 from pages.page2 import Page2
